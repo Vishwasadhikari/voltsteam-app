@@ -477,6 +477,135 @@ const ROUTES = [
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function VoltStream() {
   const [route, setRoute] = useState("/");
+
+  const [chatOpen, setChatOpen] = useState(false);
+
+  const [mode, setMode] = useState("ai");
+
+  
+
+  const [showModeMenu, setShowModeMenu] = useState(false);
+
+  const [chatHistory, setChatHistory] = useState([]);
+  
+  const [message, setMessage] = useState("");
+
+  const [aiMessages, setAiMessages] = useState([
+    {
+      sender: "bot",
+      text: "Hello! I'm VoltStream AI. How can I help you today?"
+    }
+  ]);
+  
+  const [ragMessages, setRagMessages] = useState([
+    {
+      sender: "bot",
+      text: "Hello! Ask me about VoltStream devices, billing, analytics and energy usage."
+    }
+  ]);
+  const messages =
+  mode === "ai"
+    ? aiMessages
+    : ragMessages;
+const sendMessage = async () => {
+  if (!message.trim()) return;
+
+  const userMessage = message;
+
+  if (mode === "ai") {
+    setAiMessages(prev => [
+      ...prev,
+      {
+        sender: "user",
+        text: userMessage
+      }
+    ]);
+  } else {
+    setRagMessages(prev => [
+      ...prev,
+      {
+        sender: "user",
+        text: userMessage
+      }
+    ]);
+  }
+
+  setMessage("");
+
+  try {
+
+    const endpoint =
+      mode === "ai"
+        ? "http://127.0.0.1:8000/api/v1/chat"
+        : "http://127.0.0.1:8000/api/v1/qa";
+
+    const payload =
+  mode === "ai"
+    ? {
+        message: userMessage,
+        history: chatHistory
+      }
+    : {
+        question: userMessage
+      };
+
+    const response = await fetch(
+      endpoint,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      }
+    );
+
+    const data = await response.json();
+    
+    if (mode === "ai" && data.history) {
+      setChatHistory(data.history);
+    }
+
+    if (mode === "ai") {
+      setAiMessages(prev => [
+        ...prev,
+        {
+          sender: "bot",
+          text: data.response
+        }
+      ]);
+    } else {
+      setRagMessages(prev => [
+        ...prev,
+        {
+          sender: "bot",
+          text: data.response
+        }
+      ]);
+    }
+
+  } catch {
+
+    if (mode === "ai") {
+      setAiMessages(prev => [
+        ...prev,
+        {
+          sender: "bot",
+          text: "Unable to connect to VoltStream."
+        }
+      ]);
+    } else {
+      setRagMessages(prev => [
+        ...prev,
+        {
+          sender: "bot",
+          text: "Unable to connect to VoltStream."
+        }
+      ]);
+    }
+  }
+  
+  };
   const Page =
     route==="/"          ? LiveDashboard :
     route==="/analytics" ? UsageHistory  :
@@ -529,6 +658,238 @@ export default function VoltStream() {
       </div>
 
       {/* Footer */}
+      {/* VoltStream AI */}
+
+<button
+  className="bot-float"
+  onClick={() => setChatOpen(!chatOpen)}
+  style={{
+    position: "fixed",
+    bottom: "30px",
+    right: "30px",
+    width: "78px",
+    height: "78px",
+    borderRadius: "50%",
+    border: "none",
+    cursor: "pointer",
+    fontSize: "36px",
+    background:
+      "linear-gradient(135deg,#6366f1,#8b5cf6)",
+    color: "#fff",
+    zIndex: 1000
+  }}
+>
+  🤖
+</button>
+
+{chatOpen && (
+  <div
+    style={{
+      position: "fixed",
+      right: "30px",
+      bottom: "120px",
+      width: "380px",
+      height: "500px",
+      background:
+  mode === "ai"
+    ? "#141d35"
+    : "#071a1a",
+      border: "1px solid #253558",
+      borderRadius: "16px",
+      display: "flex",
+      flexDirection: "column",
+      overflow: "hidden",
+      zIndex: 1000,
+      boxShadow: "0 10px 30px rgba(0,0,0,0.4)"
+    }}
+  >
+    <div
+  style={{
+    padding: "18px",
+    background:
+      mode === "ai"
+        ? "linear-gradient(135deg,#6366f1,#8b5cf6)"
+        : "linear-gradient(135deg,#00c6a7,#00a3ff)",
+    color: "#fff",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center"
+  }}
+>
+  <span style={{ fontWeight: "700" }}>
+    {mode === "ai"
+      ? "🤖 VoltStream AI"
+      : "📚 VoltStream Knowledge Base"}
+  </span>
+
+  <div style={{ position: "relative" }}>
+
+  <button
+    onClick={() => setShowModeMenu(!showModeMenu)}
+    style={{
+      padding: "8px 12px",
+      borderRadius: "8px",
+      border: "1px solid rgba(255,255,255,0.2)",
+      background: "rgba(255,255,255,0.15)",
+      color: "#fff",
+      fontWeight: "600",
+      cursor: "pointer",
+      minWidth: "90px"
+    }}
+  >
+    {mode.toUpperCase()} ▼
+  </button>
+
+  {showModeMenu && (
+    <div
+      style={{
+        position: "absolute",
+        top: "42px",
+        right: 0,
+        background:
+          mode === "ai"
+            ? "#141d35"
+            : "#071a1a",
+        border: "1px solid rgba(255,255,255,0.15)",
+        borderRadius: "8px",
+        overflow: "hidden",
+        zIndex: 9999,
+        minWidth: "90px",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.3)"
+      }}
+    >
+      <div
+        onClick={() => {
+          setMode("ai");
+          setShowModeMenu(false);
+        }}
+        style={{
+          padding: "10px",
+          color: "#fff",
+          cursor: "pointer"
+        }}
+      >
+        AI
+      </div>
+
+      <div
+        onClick={() => {
+          setMode("rag");
+          setShowModeMenu(false);
+        }}
+        style={{
+          padding: "10px",
+          color: "#fff",
+          cursor: "pointer"
+        }}
+      >
+        RAG
+      </div>
+    </div>
+  )}
+
+</div>
+    
+     </div>
+     <div
+     className="chat-messages"
+      style={{
+       flex: 1,
+       overflowY: "auto",
+       padding: "16px"
+     }}
+   >
+
+      {messages.map((msg, index) => (
+        <div
+          key={index}
+          style={{
+            textAlign:
+              msg.sender === "user"
+                ? "right"
+                : "left",
+            marginBottom: "10px"
+          }}
+        >
+          <div
+            style={{
+              display: "inline-block",
+              maxWidth: "80%",
+              padding: "10px",
+              borderRadius: "12px",
+              background:
+              msg.sender === "user"
+                ? "linear-gradient(135deg,#6366f1,#8b5cf6)"
+                : mode === "ai"
+  ? "#1e293b"
+  : "#103030",
+            
+            border:
+              msg.sender === "bot"
+                ? "1px solid #334155"
+                : "none",
+            
+            lineHeight: "1.6",
+            padding: "12px 14px",
+            }}
+          >
+            {msg.text}
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div
+      style={{
+        display: "flex",
+        borderTop: "1px solid #253558"
+      }}
+    >
+      <input
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        onKeyDown={(e) =>
+          e.key === "Enter" && sendMessage()
+        }
+        placeholder={
+          mode === "ai"
+            ? "Ask VoltStream AI..."
+            : "Ask about devices, billing, analytics..."
+        }
+        style={{
+          flex: 1,
+          border: "none",
+          outline: "none",
+          background:
+  mode === "ai"
+    ? "#141d35"
+    : "#071a1a",
+          color: "#fff",
+          padding: "16px",
+          fontSize: "14px"
+        }}
+      />
+
+      <button
+      onClick={sendMessage}
+       style={{
+        width: "70px",
+        border: "none",
+        cursor: "pointer",
+        fontSize: "20px",
+        background:
+  mode === "ai"
+    ? "linear-gradient(135deg,#6366f1,#8b5cf6)"
+    : "linear-gradient(135deg,#00c6a7,#00a3ff)",
+        color: "#fff"
+      }}
+        
+      >
+        ➤
+      </button>
+    </div>
+  </div>
+)}
       <div style={{ textAlign:"center", padding:"18px 0 24px", fontSize:12,
         color:D.text2, borderTop:`1px solid ${D.border}` }}>
         VoltStream · React + FastAPI · Tachyon AIML Internship v4.0

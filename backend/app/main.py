@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from mangum import Mangum
 
 from app.routes import router
+from app.chat import router as chat_router
+from app.qa import router as qa_router
 
 app = FastAPI(
     title="VoltStream API",
@@ -22,9 +24,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API routes
+# Existing VoltStream APIs
 app.include_router(router)
 
+# AI Chat Endpoint
+app.include_router(chat_router)
+
+# RAG QA Endpoint
+app.include_router(qa_router)
 
 # Root endpoint
 @app.get("/")
@@ -33,7 +40,6 @@ async def root():
         "message": "VoltStream Backend Running Successfully"
     }
 
-
 # Health endpoint
 @app.get("/health")
 async def health_check():
@@ -41,6 +47,5 @@ async def health_check():
         "status": "healthy"
     }
 
-
-# AWS Lambda handler
+# Lambda handler
 handler = Mangum(app)

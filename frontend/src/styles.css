@@ -12,3 +12,41 @@ body,
 body {
   background: #0f1628;
 }
+/* Chatbot Scrollbar */
+
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb {
+  background: #6366f1;
+  border-radius: 999px;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover {
+  background: #8b5cf6;
+}
+
+/* Floating Bot Animation */
+
+@keyframes pulseBot {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99,102,241,0.7);
+  }
+
+  70% {
+    box-shadow: 0 0 0 18px rgba(99,102,241,0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(99,102,241,0);
+  }
+}
+
+.bot-float {
+  animation: pulseBot 2.5s infinite;
+}
