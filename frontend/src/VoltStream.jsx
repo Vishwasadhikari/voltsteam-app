@@ -334,17 +334,26 @@ function UsageHistory() {
   );
 }
 
-function SmartControl() {
-  const [devices, setDevices] = useState(DEVICES);
-  useEffect(() => {
-    let active = true;
-    withFallback(api.getDevices, DEVICES).then((nextDevices) => {
+function SmartControl({
+  devices,
+  setDevices
+}) {
+  
+
+
+
+useEffect(() => {
+  let active = true;
+
+  withFallback(api.getDevices, DEVICES)
+    .then((nextDevices) => {
       if (active) setDevices(nextDevices);
     });
-    return () => {
-      active = false;
-    };
-  }, []);
+
+  return () => {
+    active = false;
+  };
+}, []);
 
   const toggle = async (id) => {
     const device = devices.find(d => d.id === id);
@@ -477,6 +486,17 @@ const ROUTES = [
 // ── App ──────────────────────────────────────────────────────────────────────
 export default function VoltStream() {
   const [route, setRoute] = useState("/");
+  const [devices, setDevices] = useState(DEVICES);
+  const refreshDevices = async () => {
+
+    const nextDevices = await withFallback(
+      api.getDevices,
+      DEVICES
+    );
+  
+    setDevices(nextDevices);
+  };
+
 
   const [chatOpen, setChatOpen] = useState(false);
 
@@ -503,16 +523,25 @@ export default function VoltStream() {
       text: "Hello! Ask me about VoltStream devices, billing, analytics and energy usage."
     }
   ]);
+  const [agentMessages, setAgentMessages] = useState([
+    {
+      sender: "bot",
+      text: "⚡ Hello! I'm VoltStream Device Agent. I can control devices and check their status."
+    }
+  ]);
   const messages =
   mode === "ai"
     ? aiMessages
-    : ragMessages;
+    : mode === "rag"
+    ? ragMessages
+    : agentMessages;
 const sendMessage = async () => {
   if (!message.trim()) return;
 
   const userMessage = message;
 
   if (mode === "ai") {
+
     setAiMessages(prev => [
       ...prev,
       {
@@ -520,7 +549,9 @@ const sendMessage = async () => {
         text: userMessage
       }
     ]);
-  } else {
+  
+  } else if (mode === "rag") {
+  
     setRagMessages(prev => [
       ...prev,
       {
@@ -528,26 +559,65 @@ const sendMessage = async () => {
         text: userMessage
       }
     ]);
+  
+  } else {
+  
+    setAgentMessages(prev => [
+      ...prev,
+      {
+        sender: "user",
+        text: userMessage
+      }
+    ]);
+    
+  
   }
 
   setMessage("");
 
   try {
 
-    const endpoint =
-      mode === "ai"
-        ? "http://127.0.0.1:8000/api/v1/chat"
-        : "http://127.0.0.1:8000/api/v1/qa";
+    let endpoint = "";
 
-    const payload =
-  mode === "ai"
-    ? {
-        message: userMessage,
-        history: chatHistory
-      }
-    : {
-        question: userMessage
-      };
+if (mode === "ai") {
+
+  endpoint =
+    "http://127.0.0.1:8000/api/v1/chat";
+
+} else if (mode === "rag") {
+
+  endpoint =
+    "http://127.0.0.1:8000/api/v1/qa";
+
+} else {
+
+  endpoint =
+    "http://127.0.0.1:8000/api/v1/agent";
+
+}
+
+let payload = {};
+
+if (mode === "ai") {
+
+  payload = {
+    message: userMessage,
+    history: chatHistory
+  };
+
+} else if (mode === "rag") {
+
+  payload = {
+    question: userMessage
+  };
+
+} else {
+
+  payload = {
+    message: userMessage
+  };
+
+}
 
     const response = await fetch(
       endpoint,
@@ -567,6 +637,7 @@ const sendMessage = async () => {
     }
 
     if (mode === "ai") {
+
       setAiMessages(prev => [
         ...prev,
         {
@@ -574,7 +645,9 @@ const sendMessage = async () => {
           text: data.response
         }
       ]);
-    } else {
+    
+    } else if (mode === "rag") {
+    
       setRagMessages(prev => [
         ...prev,
         {
@@ -582,11 +655,32 @@ const sendMessage = async () => {
           text: data.response
         }
       ]);
+    
+    } else {
+    
+      setAgentMessages(prev => [
+        ...prev,
+        {
+          sender: "bot",
+          text:
+            data.response ||
+            `${data.device_name} is ${data.state}`
+        }
+      ]);
+      await refreshDevices();
+      
+      const nextDevices = await withFallback(
+        api.getDevices,
+        DEVICES
+      );
+      
+      setDevices(nextDevices);
     }
 
   } catch {
 
     if (mode === "ai") {
+  
       setAiMessages(prev => [
         ...prev,
         {
@@ -594,7 +688,9 @@ const sendMessage = async () => {
           text: "Unable to connect to VoltStream."
         }
       ]);
-    } else {
+  
+    } else if (mode === "rag") {
+  
       setRagMessages(prev => [
         ...prev,
         {
@@ -602,15 +698,36 @@ const sendMessage = async () => {
           text: "Unable to connect to VoltStream."
         }
       ]);
+  
+    } else {
+  
+      setAgentMessages(prev => [
+        ...prev,
+        {
+          sender: "bot",
+          text: "Unable to connect to VoltStream Agent."
+        }
+      ]);
+  
     }
   }
   
   };
   const Page =
-    route==="/"          ? LiveDashboard :
-    route==="/analytics" ? UsageHistory  :
-    route==="/devices"   ? SmartControl  :
-    route==="/billing"   ? Billing       : NotFound;
+  route === "/"
+    ? LiveDashboard
+    : route === "/analytics"
+    ? UsageHistory
+    : route === "/devices"
+    ? () => (
+        <SmartControl
+          devices={devices}
+          setDevices={setDevices}
+        />
+      )
+    : route === "/billing"
+    ? Billing
+    : NotFound;
 
   return (
     <div style={{ fontFamily:"'Segoe UI',system-ui,sans-serif", background:D.bg1, minHeight:"100vh",
@@ -717,9 +834,13 @@ const sendMessage = async () => {
   }}
 >
   <span style={{ fontWeight: "700" }}>
-    {mode === "ai"
-      ? "🤖 VoltStream AI"
-      : "📚 VoltStream Knowledge Base"}
+  {
+  mode === "ai"
+    ? "🤖 VoltStream AI"
+    : mode === "rag"
+    ? "📚 VoltStream Knowledge Base"
+    : "⚡ VoltStream Device Agent"
+}
   </span>
 
   <div style={{ position: "relative" }}>
@@ -785,6 +906,19 @@ const sendMessage = async () => {
       >
         RAG
       </div>
+      <div
+  onClick={() => {
+    setMode("agent");
+    setShowModeMenu(false);
+  }}
+  style={{
+    padding: "10px",
+    color: "#fff",
+    cursor: "pointer"
+  }}
+>
+  AGENT
+</div>
     </div>
   )}
 
@@ -854,7 +988,9 @@ const sendMessage = async () => {
         placeholder={
           mode === "ai"
             ? "Ask VoltStream AI..."
-            : "Ask about devices, billing, analytics..."
+            : mode === "rag"
+            ? "Ask about devices, billing, analytics..."
+            : "Try: turn off dishwasher"
         }
         style={{
           flex: 1,
@@ -880,8 +1016,9 @@ const sendMessage = async () => {
         background:
   mode === "ai"
     ? "linear-gradient(135deg,#6366f1,#8b5cf6)"
-    : "linear-gradient(135deg,#00c6a7,#00a3ff)",
-        color: "#fff"
+    : mode === "rag"
+    ? "linear-gradient(135deg,#00c6a7,#00a3ff)"
+    : "linear-gradient(135deg,#f59e0b,#ef4444)"
       }}
         
       >
