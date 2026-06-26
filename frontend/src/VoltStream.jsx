@@ -19,6 +19,8 @@ const D = {
   accent:   "#6366f1",   // indigo — accent
 };
 
+const API = "https://k4jz8nywj8.execute-api.eu-north-1.amazonaws.com/" 
+
 const COLORS = { solar: D.solar, grid: D.grid, net: D.net, danger: D.danger };
 
 // ── SVG Icon library (no emojis) ─────────────────────────────────────────────
@@ -507,6 +509,7 @@ export default function VoltStream() {
   const [showModeMenu, setShowModeMenu] = useState(false);
 
   const [chatHistory, setChatHistory] = useState([]);
+  const [agentHistory, setAgentHistory] = useState([]);
   
   const [message, setMessage] = useState("");
 
@@ -582,18 +585,16 @@ const sendMessage = async () => {
 if (mode === "ai") {
 
   endpoint =
-    "http://127.0.0.1:8000/api/v1/chat";
+    "https://k4jz8nywj8.execute-api.eu-north-1.amazonaws.com/api/v1/chat";
 
 } else if (mode === "rag") {
 
   endpoint =
-    "http://127.0.0.1:8000/api/v1/qa";
+    "https://k4jz8nywj8.execute-api.eu-north-1.amazonaws.com/api/v1/qa";
 
 } else {
 
-  endpoint =
-    "http://127.0.0.1:8000/api/v1/agent";
-
+  endpoint = "https://llzplbfyq9.execute-api.eu-north-1.amazonaws.com/agent";
 }
 
 let payload = {};
@@ -602,21 +603,22 @@ if (mode === "ai") {
 
   payload = {
     message: userMessage,
-    history: chatHistory
+    history: chatHistory.slice(-8)
   };
 
 } else if (mode === "rag") {
 
   payload = {
-    question: userMessage
+    question: userMessage,
+    // history: agentHistory.slice(-8)
   };
 
 } else {
 
   payload = {
-    message: userMessage
+    message: userMessage,
+    history: agentHistory.slice(-8)
   };
-
 }
 
     const response = await fetch(
@@ -631,6 +633,7 @@ if (mode === "ai") {
     );
 
     const data = await response.json();
+    console.log("Agent Response:", data);
     
     if (mode === "ai" && data.history) {
       setChatHistory(data.history);
@@ -657,27 +660,85 @@ if (mode === "ai") {
       ]);
     
     } else {
+      let botResponse = data.response || data.message;
+
+      if (
+        typeof botResponse === "string" &&
+        botResponse.startsWith("{")
+      ) {
+        try {
+          const parsed = JSON.parse(botResponse);
+          botResponse =
+            parsed.response ||
+            parsed.message ||
+            botResponse;
+        } catch {}
+      }
     
       setAgentMessages(prev => [
         ...prev,
         {
           sender: "bot",
-          text:
-            data.response ||
-            `${data.device_name} is ${data.state}`
+          text: botResponse,
+          sessionId: data.session_id,
+          requestId: data.request_id
         }
       ]);
-      await refreshDevices();
+
+      // const refreshDeviceData = async() => {
+      //   const data = (await fetch("http://127.0.0.1:8000/api/v1/devices")).json()
+      //   return data;
+      // }
+
+      // useEffect(() => {
+      //   refreshDeviceData();
+      // }, [refreshDeviceData]);
+
+
+      const refreshDevices = async () => {
+        try {
+          const response = await fetch(
+            "https://k4jz8nywj8.execute-api.eu-north-1.amazonaws.com/api/v1/devices"
+          );
       
+          const devices = await response.json();
+      
+          console.log("REFRESHED:", devices);
+      
+          setDevices([...devices]);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      setTimeout(async () => {
+        await refreshDevices();
+      }, 1500);
+      
+      setAgentHistory(prev => [
+        ...prev,
+        {
+          role: "user",
+          content: userMessage
+        },
+        {
+          role: "assistant",
+          content: botResponse
+        }
+      ].slice(-8));
+    
+      
+    
       const nextDevices = await withFallback(
         api.getDevices,
         DEVICES
       );
-      
+    
+      console.log("Updated Devices:", nextDevices);
+    
       setDevices(nextDevices);
     }
-
-  } catch {
+   } catch {
 
     if (mode === "ai") {
   
@@ -951,6 +1012,7 @@ if (mode === "ai") {
               maxWidth: "80%",
               padding: "10px",
               borderRadius: "12px",
+              // padding: msg.sender === "user" ? "14px" : "10px",
               background:
               msg.sender === "user"
                 ? "linear-gradient(135deg,#6366f1,#8b5cf6)"
@@ -963,11 +1025,63 @@ if (mode === "ai") {
                 ? "1px solid #334155"
                 : "none",
             
-            lineHeight: "1.6",
-            padding: "12px 14px",
+            lineHeight: "1.6"
             }}
           >
-            {msg.text}
+            <>
+  <div>{msg.text}</div>
+
+  {msg.sessionId && (
+    <div
+      style={{
+        marginTop: "12px",
+        padding: "12px",
+        borderRadius: "10px",
+        background: "#0f172a",
+        border: "1px solid #1e40af",
+        fontSize: "12px",
+        textAlign: "left"
+      }}
+    >
+      <div
+        style={{
+          color: "#38bdf8",
+          fontWeight: "600",
+          marginBottom: "8px"
+        }}
+      >
+        ⚡ Agent Runtime Information
+      </div>
+
+      <div style={{ color: "#94a3b8" }}>
+        Session ID
+      </div>
+
+      <div
+        style={{
+          color: "#fff",
+          wordBreak: "break-all",
+          marginBottom: "10px"
+        }}
+      >
+        {msg.sessionId}
+      </div>
+
+      <div style={{ color: "#94a3b8" }}>
+        Request ID
+      </div>
+
+      <div
+        style={{
+          color: "#fff",
+          wordBreak: "break-all"
+        }}
+      >
+        {msg.requestId}
+      </div>
+    </div>
+  )}
+</>
           </div>
         </div>
       ))}

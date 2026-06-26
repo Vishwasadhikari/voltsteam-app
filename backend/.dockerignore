@@ -1,0 +1,7 @@
+venv
+__pycache__
+*.pyc
+.git
+server.err.log
+server.out.log
+deployment.zip

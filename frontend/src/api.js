@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = "https://k4jz8nywj8.execute-api.eu-north-1.amazonaws.com"
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, {

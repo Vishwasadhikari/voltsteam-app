@@ -75,7 +75,54 @@ def get_all_devices():
     return devices
 
     return load_devices()
+@tool
+def update_multiple_devices(
+    updates: list[dict]
+):
 
+    print("=" * 50)
+    print("MULTI DEVICE TOOL CALLED")
+    print(updates)
+    print("=" * 50)
+
+    devices = load_devices()
+    devices = load_devices()
+
+    updated = []
+
+    for update in updates:
+
+        device_name = update["device_name"]
+        state = update["state"]
+
+        for device in devices:
+
+            if device["name"].lower() == device_name.lower():
+
+                device["on"] = (
+                    state.upper() == "ON"
+                )
+
+                updated.append(
+                    {
+                        "device_id": device["id"],
+                        "device_name": device["name"],
+                        "state": "ON" if device["on"] else "OFF"
+                    }
+                )
+
+                print(
+                    f"SAVED -> {device['name']} -> {'ON' if device['on'] else 'OFF'}"
+                )
+
+                break
+
+    save_devices(devices)
+
+    return {
+        "updated_count": len(updated),
+        "devices": updated
+    }
 
 @tool
 def get_peak_consumers():

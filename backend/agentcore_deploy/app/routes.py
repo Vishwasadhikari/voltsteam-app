@@ -4,9 +4,9 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from services.agentcore_service import invoke_agentcore
+from app.agent.voltstream_agent import run_agent
 from app.device_store import DeviceResponse
-from services.s3_device_service import load_devices, save_devices
+from services.s3_device_service import load_devices
 
 router = APIRouter()
 
@@ -22,6 +22,8 @@ class EnergyDataPoint(BaseModel):
     label: str
     grid: float
     solar: float
+
+
 
 
 
@@ -90,26 +92,19 @@ def get_history(period: Literal["daily", "weekly", "monthly"] = "daily"):
 
 @router.get("/api/v1/devices")
 def get_devices():
+
     return load_devices()
 
 
 @router.patch("/api/v1/devices/{device_id}", response_model=DeviceResponse)
 def update_device(device_id: int, update: DeviceUpdate):
-
-    devices = load_devices()
-
     for index, device in enumerate(devices):
-
-        if device["id"] == device_id:
-            device["on"] = update.on
-
-            devices[index] = device
-
-            save_devices(devices)
-
-            return device
+        if device.id == device_id:
+            devices[index] = device.copy(update={"on": update.on})
+            return devices[index]
 
     raise HTTPException(status_code=404, detail="Device not found")
+
 
 @router.get("/api/v1/billing/summary", response_model=BillingSummary)
 def get_billing_summary():
@@ -132,5 +127,4 @@ async def agent_chat(request: AgentRequest):
     )
 
     return result
-
    

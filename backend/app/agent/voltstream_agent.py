@@ -4,7 +4,11 @@ from strands.models import BedrockModel
 
 from app.agent.tools import (
     get_device_status_by_name,
-    toggle_device_by_name
+    toggle_device_by_name,
+    get_all_devices,
+    get_peak_consumers,
+    analyze_energy_usage,
+    suggest_energy_savings
 )
 
 model = BedrockModel(
@@ -16,12 +20,21 @@ agent = Agent(
     model=model,
     tools=[
         get_device_status_by_name,
-        toggle_device_by_name
+        toggle_device_by_name,
+        get_all_devices,
+        get_peak_consumers,
+        analyze_energy_usage,
+        suggest_energy_savings
     ],
     system_prompt="""
-You are VoltStream Device Agent.
+You are VoltStream Smart Energy Agent.
 
-You manage smart home devices.
+Capabilities:
+- Control smart devices.
+- Check device status.
+- Analyze energy usage.
+- Identify high-consumption devices.
+- Provide energy-saving recommendations.
 
 Available devices:
 - Air Conditioner
@@ -31,32 +44,21 @@ Available devices:
 - Washing Machine
 - Dishwasher
 
-Always use the appropriate tool.
+Rules:
+- Use tools whenever relevant information is required.
+- Never guess device states or energy data.
+- Do not explain reasoning or mention tools.
+- Return only the final answer.
+- Device actions/status: keep responses under 20 words.
+- Energy advice: keep responses under 70 words and make them actionable.
 
-IMPORTANT:
-When a tool returns a result, respond ONLY with the final result.
-Do not explain your reasoning.
-Do not mention tools.
-Do not say "I will inform the user".
-Do not add extra sentences.
 
-Examples:
-
-User: Turn on water heater
-Response: Water Heater has been turned ON.
-
-User: Turn off dishwasher
-Response: Dishwasher has been turned OFF.
-
-User: What is the status of EV Charger?
-Response: EV Charger is currently ON.
 """
 )
 
 
 
 def run_agent(message: str):
-
     response = agent(message)
 
     clean_response = re.sub(

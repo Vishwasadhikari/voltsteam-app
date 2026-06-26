@@ -1,3 +1,11 @@
+__import__("pysqlite3")
+import sys
+
+sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+print("pysqlite3 loaded..")
+
+import os
+import shutil
 import chromadb
 import boto3
 import json
@@ -10,8 +18,17 @@ bedrock = boto3.client(
     region_name=BEDROCK_REGION
 )
 
+# -------------------------------
+# Copy ChromaDB to Lambda writable storage
+# -------------------------------
+SOURCE_DB = "/var/task/chroma_db"
+TARGET_DB = "/tmp/chroma_db"
+
+if not os.path.exists(TARGET_DB):
+    shutil.copytree(SOURCE_DB, TARGET_DB)
+
 client = chromadb.PersistentClient(
-    path="chroma_db"
+    path=TARGET_DB
 )
 
 collection = client.get_collection(
